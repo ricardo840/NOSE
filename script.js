@@ -4,9 +4,7 @@
 
 const broker = "wss://e999dc5e80ac4cefbf2e13e3e60d378c.s1.eu.hivemq.cloud:8884/mqtt";
 
-const SQLITE_STORAGE_KEY = "cords_sqlite_history";
-
-const SQLJS_WASM_PATH = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.11.0/";
+const HISTORIAL_API = "/api/historial";
 
 const options = {
 
@@ -68,30 +66,9 @@ const estadoSensores = {
 
 };
 
-let SQL = null;
-
-let db = null;
-
 let historialVisible = false;
 
-const dbReady = initSqlJs({
-    locateFile: archivo => SQLJS_WASM_PATH + archivo
-
-}).then(SQLLib => {
-
-    SQL = SQLLib;
-
-    db = cargarBaseDeDatos();
-
-    crearTablaHistorial();
-
-    renderHistorial();
-
-}).catch(error => {
-
-    console.error("No fue posible inicializar SQLite", error);
-
-});
+const historialCache = [];
 
 btnHistorial.addEventListener("click", () => {
 
@@ -109,70 +86,6 @@ btnHistorial.addEventListener("click", () => {
 
 });
 
-function cargarBaseDeDatos(){
-
-    const guardado = localStorage.getItem(SQLITE_STORAGE_KEY);
-
-    const base = guardado ? new SQL.Database(base64ToUint8Array(guardado)) : new SQL.Database();
-
-    return base;
-
-}
-
-function crearTablaHistorial(){
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS historial (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            punto_cardinal TEXT NOT NULL,
-            distancia REAL,
-            fecha_deteccion TEXT NOT NULL,
-            hora_deteccion TEXT NOT NULL
-        )
-    `);
-
-    guardarBaseDeDatos();
-
-}
-
-function guardarBaseDeDatos(){
-
-    const bytes = db.export();
-    const base64 = uint8ArrayToBase64(bytes);
-
-    localStorage.setItem(SQLITE_STORAGE_KEY, base64);
-
-}
-
-function uint8ArrayToBase64(bytes){
-
-    let cadena = "";
-
-    for(const byte of bytes){
-
-        cadena += String.fromCharCode(byte);
-
-    }
-
-    return btoa(cadena);
-
-}
-
-function base64ToUint8Array(base64){
-
-    const cadena = atob(base64);
-    const bytes = new Uint8Array(cadena.length);
-
-    for(let indice = 0; indice < cadena.length; indice += 1){
-
-        bytes[indice] = cadena.charCodeAt(indice);
-
-    }
-
-    return bytes;
-
-}
-
 function formatearFechaYHora(fecha){
 
     const fechaLocal = fecha.toLocaleDateString("es-ES");
@@ -183,12 +96,6 @@ function formatearFechaYHora(fecha){
 }
 
 function registrarDeteccion(puntoCardinal){
-
-    if(!db){
-
-        return;
-
-    }
 
     const sensor = estadoSensores[puntoCardinal];
 
@@ -207,35 +114,94 @@ function registrarDeteccion(puntoCardinal){
     const ahora = new Date();
     const tiempos = formatearFechaYHora(ahora);
 
-    db.run(
-        "INSERT INTO historial (punto_cardinal, distancia, fecha_deteccion, hora_deteccion) VALUES (?, ?, ?, ?)",
-        [puntoCardinal, Number(sensor.distancia), tiempos.fechaLocal, tiempos.horaLocal]
-    );
+    return fetch(HISTORIAL_API, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            punto_cardinal: puntoCardinal,
+            distancia: Number(sensor.distancia),
+            fecha_deteccion: tiempos.fechaLocal,
+            hora_deteccion: tiempos.horaLocal
+        })
+    })
+    .then(respuesta => {
 
-    sensor.registradoEnCiclo = true;
-    guardarBaseDeDatos();
+        if(!respuesta.ok){
 
-    if(historialVisible){
+            throw new Error("No fue posible guardar el historial");
 
-        renderHistorial();
+        }
 
-    }
+        sensor.registradoEnCiclo = true;
+
+        if(historialVisible){
+
+            cargarHistorial();
+
+        }
+
+    })
+    .catch(error => {
+
+        console.error(error);
+
+    });
 
 }
 
 function renderHistorial(){
 
-    if(!db || !cuerpoHistorial){
+    if(!cuerpoHistorial){
 
         return;
 
     }
 
-    const registros = db.exec("SELECT punto_cardinal, distancia, fecha_deteccion, hora_deteccion FROM historial ORDER BY id DESC");
+    const filas = historialCache;
 
-    const filas = registros.length ? registros[0].values : [];
+    cuerpoHistorial.innerHTML = filas.length ? filas.map(({punto_cardinal, distancia, fecha_deteccion, hora_deteccion}) => `\n<tr>\n<td>${punto_cardinal}</td>\n<td>${distancia} cm</td>\n<td>${fecha_deteccion}</td>\n<td>${hora_deteccion}</td>\n</tr>`).join("") : `\n<tr>\n<td colspan="4" class="sin-registros">Sin registros aún</td>\n</tr>`;
 
-    cuerpoHistorial.innerHTML = filas.length ? filas.map(([punto, distancia, fecha, hora]) => `\n<tr>\n<td>${punto}</td>\n<td>${distancia} cm</td>\n<td>${fecha}</td>\n<td>${hora}</td>\n</tr>`).join("") : `\n<tr>\n<td colspan="4" class="sin-registros">Sin registros aún</td>\n</tr>`;
+}
+
+function cargarHistorial(){
+
+    return fetch(HISTORIAL_API)
+        .then(respuesta => {
+
+            if(!respuesta.ok){
+
+                throw new Error("No fue posible cargar el historial");
+
+            }
+
+            return respuesta.json();
+
+        })
+        .then(registros => {
+
+            historialCache.length = 0;
+            historialCache.push(...registros);
+
+            if(historialVisible){
+
+                renderHistorial();
+
+            }
+
+        })
+        .catch(error => {
+
+            console.error(error);
+
+            historialCache.length = 0;
+
+            if(historialVisible){
+
+                renderHistorial();
+
+            }
+
+        });
 
 }
 
@@ -260,7 +226,7 @@ function procesarEstadoSensor(puntoCardinal, valor){
 
     if(estadoActivo){
 
-        dbReady.then(() => registrarDeteccion(puntoCardinal));
+        registrarDeteccion(puntoCardinal);
 
     }
 
@@ -444,8 +410,8 @@ client.on("message",(topic,message)=>{
 
             tablaNorte.innerHTML=dato+" cm";
 
-			estadoSensores.NORTE.distancia = dato;
-			dbReady.then(() => registrarDeteccion("NORTE"));
+            estadoSensores.NORTE.distancia = dato;
+            registrarDeteccion("NORTE");
 
         break;
 
@@ -455,8 +421,8 @@ client.on("message",(topic,message)=>{
 
             tablaSur.innerHTML=dato+" cm";
 
-			estadoSensores.SUR.distancia = dato;
-			dbReady.then(() => registrarDeteccion("SUR"));
+            estadoSensores.SUR.distancia = dato;
+            registrarDeteccion("SUR");
 
         break;
 
@@ -466,8 +432,8 @@ client.on("message",(topic,message)=>{
 
             tablaEste.innerHTML=dato+" cm";
 
-			estadoSensores.ESTE.distancia = dato;
-			dbReady.then(() => registrarDeteccion("ESTE"));
+            estadoSensores.ESTE.distancia = dato;
+            registrarDeteccion("ESTE");
 
         break;
 
@@ -477,11 +443,13 @@ client.on("message",(topic,message)=>{
 
             tablaOeste.innerHTML=dato+" cm";
 
-			estadoSensores.OESTE.distancia = dato;
-			dbReady.then(() => registrarDeteccion("OESTE"));
+            estadoSensores.OESTE.distancia = dato;
+			registrarDeteccion("OESTE");
 
         break;
 
     }
 
 });
+
+cargarHistorial();

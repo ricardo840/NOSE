@@ -1,0 +1,14 @@
+{
+  "name": "nose-historial",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Panel de deteccion con historial persistente para Railway",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}
