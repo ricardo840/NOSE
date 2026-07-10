@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Sistema de Detección por Coordenadas</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.11.0/sql-wasm.js"></script>
+
+</head>
+
+<body>
+
+<div class="contenedor">
+
+<h1>Sistema de Detección de Coordenadas</h1>
+
+<div id="estado" class="desconectado">
+Desconectado
+</div>
+
+<!-- ========================= -->
+<!-- MAPA -->
+<!-- ========================= -->
+
+<div class="mapa">
+
+<div class="fila">
+
+<div></div>
+
+<div class="sensor">
+
+<div id="ledNorte" class="led"></div>
+
+<h2>NORTE</h2>
+
+<p id="distNorte">---</p>
+
+</div>
+
+<div></div>
+
+</div>
+
+
+<div class="fila">
+
+<div class="sensor">
+
+<div id="ledOeste" class="led"></div>
+
+<h2>OESTE</h2>
+
+<p id="distOeste">---</p>
+
+</div>
+
+<div class="centro">
+
+<div class="circulo">
+
+ESP8266
+
+</div>
+
+</div>
+
+<div class="sensor">
+
+<div id="ledEste" class="led"></div>
+
+<h2>ESTE</h2>
+
+<p id="distEste">---</p>
+
+</div>
+
+</div>
+
+
+<div class="fila">
+
+<div></div>
+
+<div class="sensor">
+
+<div id="ledSur" class="led"></div>
+
+<h2>SUR</h2>
+
+<p id="distSur">---</p>
+
+</div>
+
+<div></div>
+
+</div>
+
+</div>
+
+<hr>
+
+<h2>Estado General</h2>
+
+<div class="panel">
+
+<div class="tarjeta">
+
+<h3>NORTE</h3>
+
+<span id="lblNorte">Sin detectar</span>
+
+</div>
+
+<div class="tarjeta">
+
+<h3>SUR</h3>
+
+<span id="lblSur">Sin detectar</span>
+
+</div>
+
+<div class="tarjeta">
+
+<h3>ESTE</h3>
+
+<span id="lblEste">Sin detectar</span>
+
+</div>
+
+<div class="tarjeta">
+
+<h3>OESTE</h3>
+
+<span id="lblOeste">Sin detectar</span>
+
+</div>
+
+</div>
+
+<div class="acciones-panel">
+
+<button id="btnHistorial" class="btn-historial" type="button">Ver historial</button>
+
+</div>
+
+<div id="bloqueHistorial" class="historial oculto">
+
+<h2>Historial de Detecciones</h2>
+
+<div class="tabla-historial-wrap">
+
+<table id="tablaHistorial">
+
+<thead>
+
+<tr>
+
+<th>Coordenada</th>
+
+<th>Distancia</th>
+
+<th>Fecha</th>
+
+<th>Hora</th>
+
+</tr>
+
+</thead>
+
+<tbody id="cuerpoHistorial">
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<hr>
+
+<h2>Distancias</h2>
+
+<table>
+
+<tr>
+
+<th>Coordenada</th>
+
+<th>Distancia</th>
+
+</tr>
+
+<tr>
+
+<td>Norte</td>
+
+<td id="tablaNorte">---</td>
+
+</tr>
+
+<tr>
+
+<td>Sur</td>
+
+<td id="tablaSur">---</td>
+
+</tr>
+
+<tr>
+
+<td>Este</td>
+
+<td id="tablaEste">---</td>
+
+</tr>
+
+<tr>
+
+<td>Oeste</td>
+
+<td id="tablaOeste">---</td>
+
+</tr>
+
+</table>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+
+</html>
